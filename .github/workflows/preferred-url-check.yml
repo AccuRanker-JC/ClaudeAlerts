@@ -1,0 +1,41 @@
+name: AccuRanker preferred URL check
+
+on:
+  schedule:
+    - cron: "0 6 * * *"   # kl. 06:00 UTC hver dag (kl. 07:00/08:00 dansk tid afhængig af sommertid)
+  workflow_dispatch: {}    # gør det muligt at trigge manuelt fra GitHub UI til test
+
+permissions:
+  contents: write   # nødvendigt for at kunne committe state.json tilbage
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Installer dependencies
+        run: pip install requests
+
+      - name: Kør preferred URL-tjek
+        env:
+          ACCURANKER_API_KEY: ${{ secrets.ACCURANKER_API_KEY }}
+          RESEND_API_KEY: ${{ secrets.RESEND_API_KEY }}
+          ALERT_EMAIL_TO: ${{ secrets.ALERT_EMAIL_TO }}
+          ALERT_EMAIL_FROM: ${{ secrets.ALERT_EMAIL_FROM }}
+          ACCURANKER_DOMAIN_ID: "343517"
+        run: python check_preferred_url.py
+
+      - name: Gem opdateret tilstand (state.json)
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add state.json
+          git diff --quiet --cached || git commit -m "Opdater preferred URL-tilstand"
+          git push
